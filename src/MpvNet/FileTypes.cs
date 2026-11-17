@@ -48,6 +48,11 @@ public static class FileTypes
     public static bool IsMedia(string[] exts, string ext) =>
         IsVideo(exts, ext) || IsAudio(exts, ext) || IsImage(exts, ext);
 
+    public static bool IsMedia(string ext) =>
+        IsVideo(ext) || IsAudio(ext) || IsImage(ext);
+
+    // 修复：原实现把文件路径数组当扩展名列表传给 IsMedia(exts, ext)，
+    // 过滤永远失败 -> 自动加载同目录文件功能失效/目录拖入时不过滤
     public static IEnumerable<string> GetMediaFiles(string[] files) =>
-        files.Where(i => IsMedia(files, i.Ext));
+        files.Where(i => IsMedia(i.Ext));
 }

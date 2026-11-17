@@ -429,6 +429,50 @@ public class MainPlayer : MpvClient
 
         LastLoad = DateTime.Now;
 
+        // 预处理：目录展开为其中的媒体文件；过滤压缩包/安装包等非媒体文件，
+        // 防止拖入文件夹或误拖 zip 时把整个目录内容（含子目录名）塞进播放列表
+        List<string> loadList = [];
+
+        foreach (string item in files)
+        {
+            if (string.IsNullOrEmpty(item))
+                continue;
+
+            string path = item.Contains('|') ? item[..item.IndexOf("|")] : item;
+            path = ConvertFilePath(path);
+
+            // URL 或特殊协议路径（dvd:// bd:// 等）直接交给 mpv 处理
+            if (path.Contains("://") || (!File.Exists(path) && !Directory.Exists(path)))
+            {
+                loadList.Add(item);
+                continue;
+            }
+
+            if (Directory.Exists(path))
+            {
+                List<string> dirFiles = FileTypes.GetMediaFiles(Directory.GetFiles(path)).ToList();
+                dirFiles.Sort(new StringLogicalComparer());
+                loadList.AddRange(dirFiles);
+                continue;
+            }
+
+            string itemExt = path.Ext;
+            if (itemExt == "lnk" || itemExt == "avs" ||
+                itemExt == "m3u" || itemExt == "m3u8" || itemExt == "cue" ||
+                itemExt == "iso" ||
+                FileTypes.Subtitle.Contains(itemExt) ||
+                FileTypes.IsMedia(itemExt))
+            {
+                loadList.Add(item);
+            }
+            // 其余（zip/rar/exe 等非媒体文件）忽略，不进播放列表
+        }
+
+        files = [.. loadList];
+
+        if (files.Length == 0)
+            return;
+
         for (int i = 0; i < files.Length; i++)
         {
             string file = files[i];
