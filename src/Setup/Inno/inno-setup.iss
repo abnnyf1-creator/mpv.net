@@ -101,6 +101,43 @@ begin
   end;
 end;
 
+// 手工补全 Icaros COM 注册
+// 背景：Icaros 3.3.6 的安装器依赖 DLL 自注册（regsvr32）写入 InprocServer32，
+// 但 /VERYSILENT 静默安装时该步骤不生效 —— 只留下空壳 CLSID 键，
+// Explorer/COM 代理无从加载 DLL，缩略图整体失效（甚至引发 DllHost 崩溃）。
+// 这里按 regsvr32 的等效内容直接写注册表（64 位与 32 位两个视图）。
+procedure RegisterIcarosDlls();
+const
+  // CLSID → DLL 路径映射（Icaros 3.3.6）
+  ClsidThumb  = '{c5aec3ec-e812-4677-a9a7-4fee1f9aa000}';
+  ClsidProp   = '{0C08E3BB-D10B-4CC9-B1B3-701F5BE9D6EC}';
+var
+  Base64, Base32, Dll64, Dll32: string;
+
+  procedure WriteClsid(Root64, Root32: string; Clsid, Name, Dll64Path, Dll32Path: string);
+  begin
+    RegWriteStringValue(HKLM, Root64 + '\' + Clsid, '', Name);
+    RegWriteStringValue(HKLM, Root64 + '\' + Clsid + '\InprocServer32', '', Dll64Path);
+    RegWriteStringValue(HKLM, Root64 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
+    RegWriteStringValue(HKLM, Root32 + '\' + Clsid, '', Name);
+    RegWriteStringValue(HKLM, Root32 + '\' + Clsid + '\InprocServer32', '', Dll32Path);
+    RegWriteStringValue(HKLM, Root32 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
+  end;
+
+begin
+  if FileExists(ExpandConstant('{pf}\Icaros\64-bit\IcarosThumbnailProvider.dll')) then
+  begin
+    Base64 := 'SOFTWARE\Classes\CLSID';
+    Base32 := 'SOFTWARE\WOW6432Node\Classes\CLSID';
+    Dll64 := ExpandConstant('{pf}\Icaros\64-bit\');
+    Dll32 := ExpandConstant('{pf32}\Icaros\32-bit\');
+    WriteClsid(Base64, Base32, ClsidThumb, 'Icaros Thumbnail Provider',
+               Dll64 + 'IcarosThumbnailProvider.dll', Dll32 + 'IcarosThumbnailProvider.dll');
+    WriteClsid(Base64, Base32, ClsidProp, 'Icaros Property Handler',
+               Dll64 + 'IcarosPropertyHandler.dll', Dll32 + 'IcarosPropertyHandler.dll');
+  end;
+end;
+
 // 让 Icaros 接管 .mp4 的缩略图
 // 背景：Icaros 3.3.6 默认激活 .mkv/.webm/.flv 等类型，但 .mp4 的缩略图处理
 // 程序被 Windows 旧版 {9DBD2C50-...}（只支持 4:2:0）占着，Icaros 不会自动
@@ -154,6 +191,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+    RegisterIcarosDlls();
     ActivateIcarosForMp4();
     // Win10/11 用 -show 参数；失败则尝试老系统的 -ClearIconCache
     if not Exec(ExpandConstant('{sys}\ie4uinit.exe'), '-show',
