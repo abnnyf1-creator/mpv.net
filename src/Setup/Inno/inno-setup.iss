@@ -101,11 +101,60 @@ begin
   end;
 end;
 
+// 让 Icaros 接管 .mp4 的缩略图
+// 背景：Icaros 3.3.6 默认激活 .mkv/.webm/.flv 等类型，但 .mp4 的缩略图处理
+// 程序被 Windows 旧版 {9DBD2C50-...}（只支持 4:2:0）占着，Icaros 不会自动
+// 接管 → 索尼 4:2:2 10bit 素材（XAVC S HD）仍无缩略图。
+// 这里镜像 IcarosConfig 接管 .mkv 时的写法：备份旧处理程序 → 改指向 → 置激活位。
+procedure ActivateIcarosForMp4();
+const
+  IcarosThumbClsid = '{c5aec3ec-e812-4677-a9a7-4fee1f9aa000}';  // Icaros 3.3.6 缩略图提供程序
+var
+  ShellExKey, OldHandler, CurList: string;
+begin
+  // 仅当 Icaros 实际安装成功后才执行
+  if not FileExists(ExpandConstant('{pf}\Icaros\64-bit\IcarosThumbnailProvider.dll')) and
+     not FileExists(ExpandConstant('{pf32}\Icaros\64-bit\IcarosThumbnailProvider.dll')) then
+    exit;
+
+  // 备份 .mp4 原缩略图处理程序（Icaros 卸载时按 ThumbBackup 恢复）
+  ShellExKey := 'SOFTWARE\Classes\.mp4\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}';
+  if RegQueryStringValue(HKLM, ShellExKey, '', OldHandler) and
+     (OldHandler <> '') and (UpperCase(OldHandler) <> IcarosThumbClsid) then
+  begin
+    RegWriteStringValue(HKLM, 'SOFTWARE\Icaros\ThumbBackup', 'IThumb.mp4', OldHandler);
+    RegWriteStringValue(HKLM, 'SOFTWARE\Icaros\ThumbBackup', 'IExtract.mp4', OldHandler);
+  end;
+
+  // 缩略图/图像提取处理程序 → Icaros
+  RegWriteStringValue(HKLM, ShellExKey, '', IcarosThumbClsid);
+  RegWriteStringValue(HKLM, 'SOFTWARE\Classes\.mp4\ShellEx\{BB2E617C-0920-11d1-9A0B-00C04FC2D6C1}',
+                      '', IcarosThumbClsid);
+  // Icaros 激活表：.mp4 置 1
+  RegWriteDWordValue(HKLM, 'SOFTWARE\Icaros\Properties', '.mp4', 1);
+
+  // Icaros 总开关"Thumbnail Extensions"里没有 .mp4 —— Icaros 运行时读这份
+  // 分号分隔的清单决定是否处理，缺了就整个不生效
+  if RegQueryStringValue(HKLM, 'SOFTWARE\Icaros', 'Thumbnail Extensions', CurList) then
+    if Pos(';.mp4;', ';' + LowerCase(CurList) + ';') = 0 then
+      RegWriteStringValue(HKLM, 'SOFTWARE\Icaros', 'Thumbnail Extensions',
+                          CurList + ';.mp4');
+
+  // 注册进 Explorer"已批准扩展"列表
+  RegWriteStringValue(HKLM,
+    'SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved',
+    IcarosThumbClsid, 'Icaros Thumbnail Provider');
+  RegWriteStringValue(HKLM,
+    'SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved',
+    '{0C08E3BB-D10B-4CC9-B1B3-701F5BE9D6EC}', 'Icaros Property Handler');
+end;
+
 // 安装完成后刷新 Windows 图标缓存，让视频缩略图立即生效
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+    ActivateIcarosForMp4();
     // Win10/11 用 -show 参数；失败则尝试老系统的 -ClearIconCache
     if not Exec(ExpandConstant('{sys}\ie4uinit.exe'), '-show',
                 '', SW_HIDE, ewWaitUntilTerminated, RefreshResultCode) then
