@@ -101,41 +101,48 @@ begin
   end;
 end;
 
+// Icaros 3.3.6 的 COM 类标识（缩略图提供程序 / 属性处理程序）
+// 注意：Inno 的 Pascal 脚本不支持过程内 const 段和嵌套过程，常量必须放全局
+const
+  ClsidThumb = '{c5aec3ec-e812-4677-a9a7-4fee1f9aa000}';
+  ClsidProp  = '{0C08E3BB-D10B-4CC9-B1B3-701F5BE9D6EC}';
+
 // 手工补全 Icaros COM 注册
-// 背景：Icaros 3.3.6 的安装器依赖 DLL 自注册（regsvr32）写入 InprocServer32，
+// 背景：Icaros 3.3.6 的安装器依赖 DLL 自注册写入 InprocServer32，
 // 但 /VERYSILENT 静默安装时该步骤不生效 —— 只留下空壳 CLSID 键，
 // Explorer/COM 代理无从加载 DLL，缩略图整体失效（甚至引发 DllHost 崩溃）。
-// 这里按 regsvr32 的等效内容直接写注册表（64 位与 32 位两个视图）。
+// 这里按自注册的等效内容直接写注册表（64 位与 32 位两个视图）。
 procedure RegisterIcarosDlls();
-const
-  // CLSID → DLL 路径映射（Icaros 3.3.6）
-  ClsidThumb  = '{c5aec3ec-e812-4677-a9a7-4fee1f9aa000}';
-  ClsidProp   = '{0C08E3BB-D10B-4CC9-B1B3-701F5BE9D6EC}';
 var
-  Base64, Base32, Dll64, Dll32: string;
-
-  procedure WriteClsid(Root64, Root32: string; Clsid, Name, Dll64Path, Dll32Path: string);
-  begin
-    RegWriteStringValue(HKLM, Root64 + '\' + Clsid, '', Name);
-    RegWriteStringValue(HKLM, Root64 + '\' + Clsid + '\InprocServer32', '', Dll64Path);
-    RegWriteStringValue(HKLM, Root64 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
-    RegWriteStringValue(HKLM, Root32 + '\' + Clsid, '', Name);
-    RegWriteStringValue(HKLM, Root32 + '\' + Clsid + '\InprocServer32', '', Dll32Path);
-    RegWriteStringValue(HKLM, Root32 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
-  end;
-
+  Base64, Base32, Dll64, Dll32, Clsid: string;
+  Name: string;
 begin
-  if FileExists(ExpandConstant('{pf}\Icaros\64-bit\IcarosThumbnailProvider.dll')) then
-  begin
-    Base64 := 'SOFTWARE\Classes\CLSID';
-    Base32 := 'SOFTWARE\WOW6432Node\Classes\CLSID';
-    Dll64 := ExpandConstant('{pf}\Icaros\64-bit\');
-    Dll32 := ExpandConstant('{pf32}\Icaros\32-bit\');
-    WriteClsid(Base64, Base32, ClsidThumb, 'Icaros Thumbnail Provider',
-               Dll64 + 'IcarosThumbnailProvider.dll', Dll32 + 'IcarosThumbnailProvider.dll');
-    WriteClsid(Base64, Base32, ClsidProp, 'Icaros Property Handler',
-               Dll64 + 'IcarosPropertyHandler.dll', Dll32 + 'IcarosPropertyHandler.dll');
-  end;
+  if not FileExists(ExpandConstant('{pf}\Icaros\64-bit\IcarosThumbnailProvider.dll')) then
+    exit;
+  Base64 := 'SOFTWARE\Classes\CLSID';
+  Base32 := 'SOFTWARE\WOW6432Node\Classes\CLSID';
+  Dll64 := ExpandConstant('{pf}\Icaros\64-bit\');
+  Dll32 := ExpandConstant('{pf32}\Icaros\32-bit\');
+
+  // 第 1 个类：缩略图提供程序
+  Name := 'Icaros Thumbnail Provider';
+  Clsid := ClsidThumb;
+  RegWriteStringValue(HKLM, Base64 + '\' + Clsid, '', Name);
+  RegWriteStringValue(HKLM, Base64 + '\' + Clsid + '\InprocServer32', '', Dll64 + 'IcarosThumbnailProvider.dll');
+  RegWriteStringValue(HKLM, Base64 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
+  RegWriteStringValue(HKLM, Base32 + '\' + Clsid, '', Name);
+  RegWriteStringValue(HKLM, Base32 + '\' + Clsid + '\InprocServer32', '', Dll32 + 'IcarosThumbnailProvider.dll');
+  RegWriteStringValue(HKLM, Base32 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
+
+  // 第 2 个类：属性处理程序
+  Name := 'Icaros Property Handler';
+  Clsid := ClsidProp;
+  RegWriteStringValue(HKLM, Base64 + '\' + Clsid, '', Name);
+  RegWriteStringValue(HKLM, Base64 + '\' + Clsid + '\InprocServer32', '', Dll64 + 'IcarosPropertyHandler.dll');
+  RegWriteStringValue(HKLM, Base64 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
+  RegWriteStringValue(HKLM, Base32 + '\' + Clsid, '', Name);
+  RegWriteStringValue(HKLM, Base32 + '\' + Clsid + '\InprocServer32', '', Dll32 + 'IcarosPropertyHandler.dll');
+  RegWriteStringValue(HKLM, Base32 + '\' + Clsid + '\InprocServer32', 'ThreadingModel', 'Apartment');
 end;
 
 // 让 Icaros 接管 .mp4 的缩略图
@@ -144,8 +151,6 @@ end;
 // 接管 → 索尼 4:2:2 10bit 素材（XAVC S HD）仍无缩略图。
 // 这里镜像 IcarosConfig 接管 .mkv 时的写法：备份旧处理程序 → 改指向 → 置激活位。
 procedure ActivateIcarosForMp4();
-const
-  IcarosThumbClsid = '{c5aec3ec-e812-4677-a9a7-4fee1f9aa000}';  // Icaros 3.3.6 缩略图提供程序
 var
   ShellExKey, OldHandler, CurList: string;
 begin
@@ -157,16 +162,16 @@ begin
   // 备份 .mp4 原缩略图处理程序（Icaros 卸载时按 ThumbBackup 恢复）
   ShellExKey := 'SOFTWARE\Classes\.mp4\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}';
   if RegQueryStringValue(HKLM, ShellExKey, '', OldHandler) and
-     (OldHandler <> '') and (UpperCase(OldHandler) <> IcarosThumbClsid) then
+     (OldHandler <> '') and (UpperCase(OldHandler) <> ClsidThumb) then
   begin
     RegWriteStringValue(HKLM, 'SOFTWARE\Icaros\ThumbBackup', 'IThumb.mp4', OldHandler);
     RegWriteStringValue(HKLM, 'SOFTWARE\Icaros\ThumbBackup', 'IExtract.mp4', OldHandler);
   end;
 
   // 缩略图/图像提取处理程序 → Icaros
-  RegWriteStringValue(HKLM, ShellExKey, '', IcarosThumbClsid);
+  RegWriteStringValue(HKLM, ShellExKey, '', ClsidThumb);
   RegWriteStringValue(HKLM, 'SOFTWARE\Classes\.mp4\ShellEx\{BB2E617C-0920-11d1-9A0B-00C04FC2D6C1}',
-                      '', IcarosThumbClsid);
+                      '', ClsidThumb);
   // Icaros 激活表：.mp4 置 1
   RegWriteDWordValue(HKLM, 'SOFTWARE\Icaros\Properties', '.mp4', 1);
 
@@ -180,7 +185,7 @@ begin
   // 注册进 Explorer"已批准扩展"列表
   RegWriteStringValue(HKLM,
     'SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved',
-    IcarosThumbClsid, 'Icaros Thumbnail Provider');
+    ClsidThumb, 'Icaros Thumbnail Provider');
   RegWriteStringValue(HKLM,
     'SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved',
     '{0C08E3BB-D10B-4CC9-B1B3-701F5BE9D6EC}', 'Icaros Property Handler');
