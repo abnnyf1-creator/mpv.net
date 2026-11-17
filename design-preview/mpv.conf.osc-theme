@@ -1,0 +1,99 @@
+# ============================================================
+# mpv.net —— 现代蓝紫 OSC 控制栏主题配置片段
+# ------------------------------------------------------------
+# 生成日期：2026-11-15
+# 适用：mpv.net（内置 libmpv v0.41，支持 osc-*_color 逐项配色）
+# 配色与 design-preview/index.html 概念稿一致
+#
+# 【重要说明】
+# 1. OSC 是 mpv 内置 osc.lua 渲染的，本项目源码里没有它的界面代码。
+#    因此"控制栏美化"只能通过 mpv.conf 的 script-opts 实现，无需改源码、
+#    无需重新编译。这是官方支持的标准做法。
+# 2. 内置 OSC 的"播放按钮位置"由脚本布局写死，只能用预设布局
+#    (bottombar / box / topbar / slimbox)，无法单独把播放键挪到正中央。
+#    概念稿的"播放键居中"属于自绘 OSC 才能做到，内置 OSC 做不到。
+#    若要完全自定义布局，需要换用第三方 OSC 脚本（如 ModernZ），
+#    把 modernz.lua 放进配置目录 scripts\ 并额外配置，本片段不适用。
+# ============================================================
+
+
+# ---------- 1. 布局与隐藏行为 ----------
+# bottombar：底部条形布局（最常用，字幕基本不受遮挡）
+script-opts-append=osc-layout=bottombar
+
+# 自动隐藏：鼠标静止 1200ms 后淡出（默认 500，稍放宽更好用）
+# 这与概念稿"静止后收起、移动唤出"的行为一致（内置 OSC 原生支持）
+script-opts-append=osc-hidetimeout=1200
+
+# 淡入淡出时长（毫秒），更顺滑
+script-opts-append=osc-fadeduration=250
+
+# visibility=auto：播放时自动隐藏，暂停时常驻、移动鼠标唤出
+script-opts-append=osc-visibility=auto
+
+# 背景框透明度：0=完全不透明，255=完全透明。90 更通透、少挡画面
+script-opts-append=osc-boxalpha=90
+
+# 进度条样式：bar（简洁条形）
+script-opts-append=osc-seekbarstyle=bar
+
+# 窗口模式下缩放（1.0 为默认，想更大可改 1.1）
+script-opts-append=osc-scalewindowed=1.0
+
+# 进度条圆点大小
+script-opts-append=osc-seekbarhandlesize=0.65
+
+# 边缘死区：鼠标离边缘多近才唤出控制栏（0~0.5）
+script-opts-append=osc-deadzonesize=0.3
+
+
+# ---------- 2. 蓝紫主题配色（对齐概念稿 #6C8FFF → #A074FF） ----------
+# 控制栏背景色（透明度由上面的 boxalpha 控制）
+script-opts-append=osc-background_color=#12141C
+
+# 标题颜色
+script-opts-append=osc-title_color=#EDF0F7
+
+# 时间码 & 进度条颜色（蓝紫强调色）
+script-opts-append=osc-timecode_color=#8CA6FF
+
+# 进度条悬停处的时间码颜色
+script-opts-append=osc-time_pos_color=#B9C8FF
+script-opts-append=osc-time_pos_outline_color=#12141C
+
+# 主控制按钮（播放/暂停、上一个/下一个）
+script-opts-append=osc-buttons_color=#A074FF
+
+# 顶部按钮
+script-opts-append=osc-top_buttons_color=#EDF0F7
+
+# box 布局下的小按钮（左右）
+script-opts-append=osc-small_buttonsL_color=#9AA2B6
+script-opts-append=osc-small_buttonsR_color=#9AA2B6
+
+# 按住元素时的高亮色
+script-opts-append=osc-held_element_color=#6C8FFF
+
+
+# ============================================================
+# 【使用方法 —— 三选一，均不需要重新编译】
+#
+# 方法 A（推荐，配置编辑器可预览）：
+#   打开 mpv.net 配置编辑器 → 菜单 → Preview mpv.conf，
+#   把本文件内容追加进去，保存。
+#
+# 方法 B（直接改文件）：
+#   1. 找到 mpv.conf：
+#      %APPDATA%\mpv.net\mpv.conf
+#      （若不存在则新建同名文件）
+#   2. 把本文件中所有 "script-opts-append=..." 行追加到文件末尾。
+#   3. 重启 mpv.net 生效。
+#
+# 方法 C（命令行临时验证，不改文件）：
+#   启动参数里加入对应 --script-opts=osc-布局=值,osc-选项=值
+#
+# 提示：
+#   - 若用了第三方 OSC（如 ModernZ / uosc），上面的 osc-* 选项不适用，
+#     需改用对应脚本自己的配置文件。
+#   - 想恢复默认：删除这些行，或把颜色改回 #FFFFFF / 背景 #000000。
+# ============================================================

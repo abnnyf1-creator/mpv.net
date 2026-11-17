@@ -1,25 +1,25 @@
 ﻿
 [dark]
 
-heading     = #3C8CC8
-foreground  = #DDDDDD
-foreground2 = #AAAAAA
-background  = #323232
-highlight   = #404040
+heading     = #7C93FF
+foreground  = #EDEFF7
+foreground2 = #9AA2B6
+background  = #181B26
+highlight   = #2A3042
 
-menu-foreground = #DDDDDD
-menu-background = #323232
-menu-highlight  = #505050
+menu-foreground = #EDEFF7
+menu-background = #1C2030
+menu-highlight  = #46548A
 
 
 [light]
 
-heading     = #0068B2
-foreground  = #000000
-foreground2 = #4C4C4C
-background  = #F7F7F7
-highlight   = #DFDFDF
+heading     = #5577F5
+foreground  = #1C2030
+foreground2 = #6E7588
+background  = #F4F5F9
+highlight   = #E6EAF5
 
-menu-foreground = #000000
-menu-background = #DFDFDF
-menu-highlight  = #BFBFBF
+menu-foreground = #1C2030
+menu-background = #FFFFFF
+menu-highlight  = #CBD5F0

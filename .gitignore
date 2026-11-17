@@ -301,3 +301,14 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# 打包产物（build.ps1 输出）
+dist/
+
+_build.log
+
+# Inno Setup 编译输出
+src/Setup/Inno/Output/
+
+# 超大捆绑包不入 git（>50MB；README 里有下载地址与 SHA256）
+src/Setup/Inno/windowsdesktop-runtime-*.exe

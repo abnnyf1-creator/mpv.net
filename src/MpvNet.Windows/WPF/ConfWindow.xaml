@@ -108,7 +108,7 @@
             Name="MenuTextBlock"
             Text="Menu"
             Cursor="Hand"
-            Foreground="LightGray"
+            Foreground="{Binding Theme.Foreground2}"
             TextDecorations="Underline"
             HorizontalAlignment="Center"
             Margin="20,5,10,10"

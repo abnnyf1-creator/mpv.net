@@ -1,8 +1,25 @@
 
+; mpv.net 安装器脚本（Inno Setup 6）
+; 基于官方脚本修改：捆绑安装 Icaros 缩略图组件
+; Icaros v3.3.6 (https://github.com/Xanashi/Icaros) 让 Windows 资源管理器
+; 能为 4:2:2 10bit H.264 视频（如索尼相机 XAVC S HD 422 素材）显示画面缩略图
+;
+; 编译方法见同目录 README-编译说明.txt
+
 #define MyAppName "mpv.net"
 #define MyAppExeName "mpvnet.exe"
-#define MyAppSourceDir "..\..\MpvNet.Windows\bin\Debug"
-#define MyAppVersion GetFileVersion("..\..\MpvNet.Windows\bin\Debug\mpvnet.exe")
+; 取构建流程组装好的 dist 便携版（含 mpvnet.exe + libmpv-2.dll + MediaInfo.dll + mpvnet.com）
+; 注意：需先运行构建（build.cmd），产出 dist\mpv.net-vX.X.X-portable-x64 后再编译本安装器
+#define MyAppSourceDir "..\..\..\dist\mpv.net-v7.1.2.0-portable-x64"
+#define MyAppVersion GetFileVersion("..\..\..\dist\mpv.net-v7.1.2.0-portable-x64\mpvnet.exe")
+
+; Icaros 捆绑配置
+#define IcarosInstaller "Icaros_v3.3.6.exe"
+#define IcarosVersion "3.3.6"
+
+; .NET Desktop Runtime 捆绑配置（mpv.net 单文件版运行必需）
+; 目标机器已装 10.x 时自动跳过安装
+#define RuntimeInstaller "windowsdesktop-runtime-10.0.15-win-x64.exe"
 
 [Setup]
 AppId={{9AA2B100-BEF3-44D0-B819-D8FC3C4D557D}}
@@ -13,16 +30,116 @@ ArchitecturesInstallIn64BitMode=x64
 Compression=lzma2
 DefaultDirName={autopf}\{#MyAppName}
 OutputBaseFilename=mpv.net-v{#MyAppVersion}-setup-x64
-OutputDir=E:\Desktop
+OutputDir=Output
 DefaultGroupName={#MyAppName}
 SetupIconFile=..\..\MpvNet.Windows\mpv-icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 
+[Languages]
+; 只定义一种语言 → 安装器全程中文，且不弹语言选择框
+; （若编译时报错找不到该文件，需在 Inno Setup 安装时勾选语言包，见 README）
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+
+[Tasks]
+; 附加组件页：默认勾选安装 Icaros
+; Check: IsAdmin() —— 若用户在安装器里选择了"仅为我安装"（非提升权限），
+; Icaros 需要系统级安装，此时自动隐藏该选项
+Name: "icaros"; \
+    Description: "安装 Icaros 缩略图组件 v{#IcarosVersion}（推荐：让 4:2:2 10bit 视频（如索尼相机素材）在资源管理器显示画面缩略图）"; \
+    GroupDescription: "附加组件："; \
+    Check: IsAdmin()
+
+; .NET Desktop Runtime：目标机器没有 10.x 时才显示并勾选
+Name: "dotnetruntime"; \
+    Description: "安装 .NET Desktop Runtime 10.0（mpv.net 运行必需；已装会自动跳过）"; \
+    GroupDescription: "附加组件："; \
+    Check: DotNetDesktopMissing() and IsAdmin()
+
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 
 [Files]
 Source: "{#MyAppSourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Excludes: "win-x64,win-arm64"; Flags: ignoreversion recursesubdirs createallsubdirs;
+Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,win-x64,win-arm64"; Flags: ignoreversion recursesubdirs createallsubdirs;
+; Icaros 安装器捆绑到临时目录，安装完成后自动删除，不留在目标机器上
+Source: "{#IcarosInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: icaros
+; .NET Desktop Runtime 同样捆绑到临时目录，装完即删
+Source: "{#RuntimeInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: dotnetruntime
+
+[Run]
+; Icaros 3.3.6 实为 Inno Setup 打包（不是 NSIS），/S 无效！
+; 必须用 Inno 静默参数：全程无界面，不弹语言选择框，不弹 UAC
+; （因为 mpv.net 安装器本身已以管理员权限运行）
+Filename: "{tmp}\{#IcarosInstaller}"; Parameters: "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"; Tasks: icaros; Flags: waituntilterminated
+; .NET Desktop Runtime 官方静默参数：/install /quiet /norestart
+Filename: "{tmp}\{#RuntimeInstaller}"; Parameters: "/install /quiet /norestart"; Tasks: dotnetruntime; Flags: waituntilterminated
+
+[Code]
+var
+  RefreshResultCode: Integer;
+
+// 检测目标机器是否已安装 .NET Desktop Runtime 10.x
+// 方法：查 %ProgramFiles%\dotnet\shared\Microsoft.WindowsDesktop.App 下的版本目录
+function DotNetDesktopMissing(): Boolean;
+var
+  SearchRec: TFindRec;
+  DesktopDir: string;
+begin
+  Result := True;
+  DesktopDir := ExpandConstant('{pf}\dotnet\shared\Microsoft.WindowsDesktop.App');
+  if FindFirst(DesktopDir + '\*', SearchRec) then
+  begin
+    repeat
+      if (SearchRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+        if (SearchRec.Name <> '.') and (SearchRec.Name <> '..') then
+          if Pos('10.', SearchRec.Name) = 1 then
+            Result := False;
+    until not FindNext(SearchRec);
+    FindClose(SearchRec);
+  end;
+end;
+
+// 安装完成后刷新 Windows 图标缓存，让视频缩略图立即生效
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    // Win10/11 用 -show 参数；失败则尝试老系统的 -ClearIconCache
+    if not Exec(ExpandConstant('{sys}\ie4uinit.exe'), '-show',
+                '', SW_HIDE, ewWaitUntilTerminated, RefreshResultCode) then
+      Exec(ExpandConstant('{sys}\ie4uinit.exe'), '-ClearIconCache',
+           '', SW_HIDE, ewWaitUntilTerminated, RefreshResultCode);
+  end;
+end;
+
+// 卸载 mpv.net 时询问是否连同卸载 Icaros（不强制——
+// 用户可能希望保留系统缩略图功能）
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  UninstallResultCode: Integer;
+  IcarosUninstaller: string;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    // Icaros 3.3.6 为 Inno Setup 打包，卸载器是 unins000.exe
+    // 64 位装 Program Files\Icaros，32 位装 Program Files (x86)\Icaros
+    IcarosUninstaller := ExpandConstant('{pf}\Icaros\unins000.exe');
+    if not FileExists(IcarosUninstaller) then
+      IcarosUninstaller := ExpandConstant('{pf32}\Icaros\unins000.exe');
+    // 兜底：旧版 NSIS 安装器的卸载器名为 un.exe
+    if not FileExists(IcarosUninstaller) then
+      IcarosUninstaller := ExpandConstant('{pf}\Icaros\un.exe');
+    if not FileExists(IcarosUninstaller) then
+      IcarosUninstaller := ExpandConstant('{pf32}\Icaros\un.exe');
+
+    if FileExists(IcarosUninstaller) then
+    begin
+      if MsgBox('是否同时卸载 Icaros 缩略图组件？' #13#10
+                '（卸载后 4:2:2 10bit 视频（如索尼素材）将不再显示缩略图）',
+                mbConfirmation, MB_YESNO) = IDYES then
+        Exec(IcarosUninstaller, '', '', SW_SHOW, ewWaitUntilTerminated, UninstallResultCode);
+    end;
+  end;
+end;

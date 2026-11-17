@@ -17,6 +17,7 @@ public class Theme
     public static Theme? Current { get; set; }
 
     public Brush? Background { get; set; }
+    public Brush? Background2 { get; set; }
     public Brush? Foreground { get; set; }
     public Brush? Foreground2 { get; set; }
     public Brush? Heading { get; set; }
@@ -24,6 +25,7 @@ public class Theme
     public Brush? MenuHighlight { get; set; }
 
     public Color BackgroundColor { get; set; }
+    public Color Background2Color { get; set; }
     public Color ForegroundColor { get; set; }
     public Color Foreground2Color { get; set; }
     public Color HeadingColor { get; set; }
@@ -86,6 +88,7 @@ public class Theme
             Current = DefaultThemes[0];
 
         Current.Background = Current.GetBrush("background");
+        Current.Background2 = Current.GetBrush("highlight");
         Current.Foreground = Current.GetBrush("foreground");
         Current.Foreground2 = Current.GetBrush("foreground2");
         Current.Heading = Current.GetBrush("heading");
@@ -93,6 +96,7 @@ public class Theme
         Current.MenuHighlight = Current.GetBrush("menu-highlight");
 
         Current.BackgroundColor = Current.GetColor("background");
+        Current.Background2Color = Current.GetColor("highlight");
         Current.ForegroundColor = Current.GetColor("foreground");
         Current.Foreground2Color = Current.GetColor("foreground2");
         Current.HeadingColor = Current.GetColor("heading");
@@ -126,20 +130,28 @@ public class Theme
     {
         var dic = Application.Current.Resources;
 
-        dic.Remove("BorderColor");
-        dic.Add("BorderColor", Current!.GetColor("menu-highlight"));
+        void Set(string key, string value)
+        {
+            dic.Remove(key);
+            dic.Add(key, Current!.GetColor(value));
+        }
 
-        dic.Remove("RegionColor");
-        dic.Add("RegionColor", Current.GetColor("menu-background"));
+        // 区域与边框
+        Set("BorderColor", "menu-highlight");
+        Set("MenuBorderColor", "menu-highlight");
+        Set("RegionColor", "menu-background");
+        Set("SecondaryRegionColor", "highlight");
+        Set("PrimaryTextColor", "menu-foreground");
+        Set("SecondaryTextColor", "foreground2");
+        Set("HighlightColor", "highlight");
 
-        dic.Remove("SecondaryRegionColor");
-        dic.Add("SecondaryRegionColor", Current.GetColor("menu-highlight"));
-
-        dic.Remove("PrimaryTextColor");
-        dic.Add("PrimaryTextColor", Current.GetColor("menu-foreground"));
-
-        dic.Remove("HighlightColor");
-        dic.Add("HighlightColor", Current.GetColor("highlight"));
+        // 强调色：标题、焦点、勾选、链接、按钮描边统一使用 heading 主题色
+        Set("PrimaryColor", "heading");
+        Set("DarkPrimaryColor", "heading");
+        Set("AccentColor", "heading");
+        Set("DarkAccentColor", "heading");
+        Set("TitleColor", "heading");
+        Set("SecondaryTitleColor", "heading");
     }
 
     static bool DarkModeSystem
