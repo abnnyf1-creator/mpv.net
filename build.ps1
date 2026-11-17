@@ -374,6 +374,17 @@ foreach ($f in $runtimeFiles) {
 }
 if ($rtTmp -and (Test-Path -LiteralPath $rtTmp)) { Remove-Item -LiteralPath $rtTmp -Recurse -Force -ErrorAction SilentlyContinue }
 
+# 界面翻译（gettext .mo，已预编译进仓库 lang/mo/，避免构建机需要 msgfmt）
+# 放到 exe 目录 Locale/<语言>/LC_MESSAGES/mpvnet.mo，程序按系统语言自动加载
+$localeSrc = Join-Path $root 'lang\mo'
+if (Test-Path -LiteralPath $localeSrc) {
+    Copy-Item -LiteralPath $localeSrc -Destination (Join-Path $outDir 'Locale') -Recurse -Force
+    $moCount = (Get-ChildItem -LiteralPath (Join-Path $outDir 'Locale') -Filter 'mpvnet.mo' -Recurse -File).Count
+    Ok ("界面翻译 Locale（$moCount 种语言，含简体中文）")
+} else {
+    Warn '缺 lang\mo\（界面翻译），菜单将显示英文'
+}
+
 # ---------- 5. 打包 ----------
 Step '5/6' '打包 zip'
 $zipPath = Join-Path $distRoot ($outName + '.zip')
