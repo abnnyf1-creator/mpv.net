@@ -67,6 +67,8 @@ Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,win-x64,win-ar
 Source: "{#IcarosInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: icaros
 ; .NET Desktop Runtime 同样捆绑到临时目录，装完即删
 Source: "{#RuntimeInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: dotnetruntime
+; 默认 mpv.conf 模板（装到程序目录，安装完成后按需写入用户配置目录）
+Source: "default-mpv.conf"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 ; Icaros 3.3.6 实为 Inno Setup 打包（不是 NSIS），/S 无效！
@@ -193,11 +195,25 @@ end;
 
 // 安装完成后刷新 Windows 图标缓存，让视频缩略图立即生效
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  UserConfDir, UserConfFile: string;
 begin
   if CurStep = ssPostInstall then
   begin
     RegisterIcarosDlls();
     ActivateIcarosForMp4();
+
+    // 默认播放配置：目标机器没有 mpv.conf 时，从程序目录复制模板过去
+    // （含 osc=no / keep-open=always 重播 / 索尼素材优化）；已有配置不覆盖
+    UserConfDir := ExpandConstant('{userappdata}\mpv.net');
+    UserConfFile := UserConfDir + '\mpv.conf';
+    if not FileExists(UserConfFile) then
+    begin
+      if not DirExists(UserConfDir) then
+        ForceDirectories(UserConfDir);
+      FileCopy(ExpandConstant('{app}\default-mpv.conf'), UserConfFile, False);
+    end;
+
     // Win10/11 用 -show 参数；失败则尝试老系统的 -ClearIconCache
     if not Exec(ExpandConstant('{sys}\ie4uinit.exe'), '-show',
                 '', SW_HIDE, ewWaitUntilTerminated, RefreshResultCode) then
