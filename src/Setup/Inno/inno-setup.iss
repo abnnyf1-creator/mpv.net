@@ -69,6 +69,11 @@ Source: "{#IcarosInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks
 Source: "{#RuntimeInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: dotnetruntime
 ; 默认 mpv.conf 模板（装到程序目录，安装完成后按需写入用户配置目录）
 Source: "default-mpv.conf"; DestDir: "{app}"; Flags: ignoreversion
+; ModernZ 控制栏三件套（装到程序目录，安装完成后按需部署到用户配置目录）
+; 本机没装 ModernZ 会导致 osc=no 后没有任何控制栏，所以必须随安装器分发
+Source: "ModernZ\modernz.lua"; DestDir: "{app}\ModernZ"; Flags: ignoreversion
+Source: "ModernZ\modernz-icons.ttf"; DestDir: "{app}\ModernZ"; Flags: ignoreversion
+Source: "ModernZ\modernz.conf"; DestDir: "{app}\ModernZ"; Flags: ignoreversion
 
 [Run]
 ; Icaros 3.3.6 实为 Inno Setup 打包（不是 NSIS），/S 无效！
@@ -196,23 +201,40 @@ end;
 // 安装完成后刷新 Windows 图标缓存，让视频缩略图立即生效
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  UserConfDir, UserConfFile: string;
+  UserConfDir, UserConfFile, ModernZSrc: string;
 begin
   if CurStep = ssPostInstall then
   begin
     RegisterIcarosDlls();
     ActivateIcarosForMp4();
 
-    // 默认播放配置：目标机器没有 mpv.conf 时，从程序目录复制模板过去
-    // （含 osc=no / keep-open=always 重播 / 索尼素材优化）；已有配置不覆盖
     UserConfDir := ExpandConstant('{userappdata}\mpv.net');
     UserConfFile := UserConfDir + '\mpv.conf';
+
+    if not DirExists(UserConfDir) then
+      ForceDirectories(UserConfDir);
+
+    // 默认播放配置：仅全新安装（无 mpv.conf）时写入，老用户配置一律不覆盖
     if not FileExists(UserConfFile) then
-    begin
-      if not DirExists(UserConfDir) then
-        ForceDirectories(UserConfDir);
       FileCopy(ExpandConstant('{app}\default-mpv.conf'), UserConfFile, False);
-    end;
+
+    // ModernZ 控制栏始终部署（已存在的文件不覆盖，保护用户自定义）：
+    // 默认配置 osc=no 关掉了内置控制栏，若没有 ModernZ 脚本接管，
+    // 新机器（尤其 Win10）就完全没有控制栏，表现为"呼不出来"。
+    // 即使老用户已有自己的 mpv.conf，只要里面是 osc=no 就需要这份脚本。
+    ModernZSrc := ExpandConstant('{app}\ModernZ');
+    if not DirExists(UserConfDir + '\scripts') then
+      ForceDirectories(UserConfDir + '\scripts');
+    if not DirExists(UserConfDir + '\fonts') then
+      ForceDirectories(UserConfDir + '\fonts');
+    if not DirExists(UserConfDir + '\script-opts') then
+      ForceDirectories(UserConfDir + '\script-opts');
+    if not FileExists(UserConfDir + '\scripts\modernz.lua') then
+      FileCopy(ModernZSrc + '\modernz.lua', UserConfDir + '\scripts\modernz.lua', False);
+    if not FileExists(UserConfDir + '\fonts\modernz-icons.ttf') then
+      FileCopy(ModernZSrc + '\modernz-icons.ttf', UserConfDir + '\fonts\modernz-icons.ttf', False);
+    if not FileExists(UserConfDir + '\script-opts\modernz.conf') then
+      FileCopy(ModernZSrc + '\modernz.conf', UserConfDir + '\script-opts\modernz.conf', False);
 
     // Win10/11 用 -show 参数；失败则尝试老系统的 -ClearIconCache
     if not Exec(ExpandConstant('{sys}\ie4uinit.exe'), '-show',
