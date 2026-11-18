@@ -67,8 +67,9 @@ Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,win-x64,win-ar
 Source: "{#IcarosInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: icaros
 ; .NET Desktop Runtime 同样捆绑到临时目录，装完即删
 Source: "{#RuntimeInstaller}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Tasks: dotnetruntime
-; 默认 mpv.conf 模板（装到程序目录，安装完成后按需写入用户配置目录）
+; 默认配置模板（装到程序目录，安装完成后按需写入用户配置目录）
 Source: "default-mpv.conf"; DestDir: "{app}"; Flags: ignoreversion
+Source: "default-mpvnet.conf"; DestDir: "{app}"; Flags: ignoreversion
 ; ModernZ 控制栏三件套（装到程序目录，安装完成后按需部署到用户配置目录）
 ; 本机没装 ModernZ 会导致 osc=no 后没有任何控制栏，所以必须随安装器分发
 Source: "ModernZ\modernz.lua"; DestDir: "{app}\ModernZ"; Flags: ignoreversion
@@ -201,7 +202,7 @@ end;
 // 安装完成后刷新 Windows 图标缓存，让视频缩略图立即生效
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  UserConfDir, UserConfFile, ModernZSrc: string;
+  UserConfDir, UserConfFile, UserAppConfFile, ModernZSrc: string;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -217,6 +218,11 @@ begin
     // 默认播放配置：仅全新安装（无 mpv.conf）时写入，老用户配置一律不覆盖
     if not FileExists(UserConfFile) then
       FileCopy(ExpandConstant('{app}\default-mpv.conf'), UserConfFile, False);
+
+    // mpv.net 配置：开启 auto-load-folder 同目录连播（仅全新安装时写入）
+    UserAppConfFile := UserConfDir + '\mpvnet.conf';
+    if not FileExists(UserAppConfFile) then
+      FileCopy(ExpandConstant('{app}\default-mpvnet.conf'), UserAppConfFile, False);
 
     // ModernZ 控制栏始终部署（已存在的文件不覆盖，保护用户自定义）：
     // 默认配置 osc=no 关掉了内置控制栏，若没有 ModernZ 脚本接管，

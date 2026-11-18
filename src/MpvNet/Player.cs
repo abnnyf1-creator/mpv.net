@@ -589,7 +589,15 @@ public class MainPlayer : MpvClient
             if (path.Contains('\\'))
                 dir = System.IO.Path.GetDirectoryName(path)!;
 
-            List<string> files = FileTypes.GetMediaFiles(Directory.GetFiles(dir)).ToList();
+            // 只加载与当前文件同类型的媒体：打开 MP3 只连播音频，打开 MP4 只连播视频。
+            // 否则同目录混排时，短音频播完会跳到 MP4，表现为"无法播放 MP3"。
+            string currentExt = path.Ext;
+            List<string> files = FileTypes.GetMediaFiles(Directory.GetFiles(dir))
+                .Where(f => f.Ext == currentExt ||
+                            (FileTypes.IsVideo(currentExt) && FileTypes.IsVideo(f.Ext)) ||
+                            (FileTypes.IsAudio(currentExt) && FileTypes.IsAudio(f.Ext)) ||
+                            (FileTypes.IsImage(currentExt) && FileTypes.IsImage(f.Ext)))
+                .ToList();
 
             if (OperatingSystem.IsWindows())
                 files.Sort(new StringLogicalComparer());
