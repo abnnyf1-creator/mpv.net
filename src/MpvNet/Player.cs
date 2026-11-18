@@ -106,9 +106,11 @@ public class MainPlayer : MpvClient
         SetPropertyBool("input-builtin-bindings", false);
         SetPropertyBool("input-media-keys", true);
 
-        // 自动连播只加载同类型文件：打开 MP3 只在 MP3 间连播，不会混进同目录的 MP4。
-        // 原为 "filter"（所有媒体混排），会导致音频/视频串台。
-        SetPropertyString("autocreate-playlist", "same");
+        // 不自动扫描同目录建连播列表：打开什么就只播什么。
+        // 原为 "filter"：会把同目录的 MP4、子文件夹都塞进播放列表，
+        // 打开 MP3 播完后自动跳到视频/文件夹空条目，表现为"无法播放 MP3"。
+        // 用户可在 mpv.conf 里写 autocreate-playlist=same/filter 自行恢复连播。
+        SetPropertyString("autocreate-playlist", "no");
         SetPropertyString("media-controls", "yes");
         SetPropertyString("idle", "yes");
         SetPropertyString("screenshot-directory", "~~desktop/");
